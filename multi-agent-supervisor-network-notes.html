@@ -1,0 +1,748 @@
+<title>멀티 에이전트: 감독자와 협업 네트워크</title>
+<style>
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161c;
+      --surface: #1a2028;
+      --surface-2: #212a34;
+      --ink: #e7eaee;
+      --ink-dim: #99a4b1;
+      --line: #2b3440;
+      --accent: #7fb0dd;
+      --accent-soft: #1f2c38;
+      --good: #74c393;
+      --good-soft: #1c2b22;
+      --warn: #ddad63;
+      --warn-soft: #2c2619;
+      --bad: #e08b79;
+      --bad-soft: #2c211d;
+      --shadow: 0 1px 0 rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161c;
+    --surface: #1a2028;
+    --surface-2: #212a34;
+    --ink: #e7eaee;
+    --ink-dim: #99a4b1;
+    --line: #2b3440;
+    --accent: #7fb0dd;
+    --accent-soft: #1f2c38;
+    --good: #74c393;
+    --good-soft: #1c2b22;
+    --warn: #ddad63;
+    --warn-soft: #2c2619;
+    --bad: #e08b79;
+    --bad-soft: #2c211d;
+    --shadow: 0 1px 0 rgba(0,0,0,.4);
+  }
+  :root {
+    --bg: #f3f5f7;
+    --surface: #ffffff;
+    --surface-2: #edf1f4;
+    --ink: #1a212b;
+    --ink-dim: #5c6875;
+    --line: #dde3e9;
+    --accent: #35618f;
+    --accent-soft: #e4ecf3;
+    --good: #2f8a5b;
+    --good-soft: #e7f4ec;
+    --warn: #a8752a;
+    --warn-soft: #f7eddc;
+    --bad: #ad4f3d;
+    --bad-soft: #f7e7e3;
+    --shadow: 0 1px 0 rgba(20,30,40,.04);
+
+    --sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", "Segoe UI", "Malgun Gothic", sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "D2Coding", "Consolas", monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+  ::selection { background: var(--accent-soft); }
+
+  h1, h2, h3, h4 { text-wrap: balance; font-weight: 700; line-height: 1.3; margin: 0; }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  header.top {
+    padding: 56px 0 36px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 36px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  header.top h1 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.01em; }
+  header.top p.sub {
+    margin: 12px 0 0;
+    color: var(--ink-dim);
+    font-size: 16px;
+    max-width: 62ch;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 22px;
+  }
+  .meta-chip {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 5px 10px;
+    border-radius: 6px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 48px;
+    align-items: start;
+  }
+  nav.toc {
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13.5px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    padding-bottom: 24px;
+  }
+  nav.toc a {
+    color: var(--ink-dim);
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border-left: 2px solid transparent;
+  }
+  nav.toc a.indent { padding-left: 20px; font-size: 12.5px; }
+  nav.toc a:hover { color: var(--ink); background: var(--surface-2); }
+  nav.toc a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  nav.toc .toc-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin: 18px 0 4px 10px;
+  }
+  nav.toc .toc-label:first-child { margin-top: 0; }
+
+  main { min-width: 0; }
+
+  section.part {
+    padding-top: 8px;
+    margin-bottom: 64px;
+  }
+  .part-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    letter-spacing: .06em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 6px;
+    padding: 4px 10px;
+    margin-bottom: 14px;
+  }
+  section.part > h2 { font-size: clamp(22px, 3vw, 28px); margin-bottom: 6px; }
+  section.part > p.lede { color: var(--ink-dim); max-width: 68ch; margin: 10px 0 0; font-size: 15.5px; }
+
+  h3.sub {
+    font-size: 18px;
+    margin: 40px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  h4.minor {
+    font-size: 15.5px;
+    margin: 26px 0 10px;
+    color: var(--ink);
+  }
+
+  p { margin: 12px 0; max-width: 68ch; }
+  ul, ol { margin: 12px 0; padding-left: 22px; max-width: 66ch; }
+  li { margin: 6px 0; }
+  strong { font-weight: 700; }
+  code.inline {
+    font-family: var(--mono);
+    font-size: .88em;
+    background: var(--surface-2);
+    padding: .12em .38em;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin: 16px 0;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .code-block .code-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-dim);
+    letter-spacing: .03em;
+  }
+  .code-block pre {
+    margin: 0;
+    padding: 16px;
+    overflow-x: auto;
+  }
+  .code-block code {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--ink);
+    white-space: pre;
+  }
+
+  .table-wrap { overflow-x: auto; margin: 18px 0; border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 560px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--surface-2); font-family: var(--mono); font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  td code.inline { white-space: nowrap; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge.good { color: var(--good); background: var(--good-soft); }
+  .badge.warn { color: var(--warn); background: var(--warn-soft); }
+  .badge.bad  { color: var(--bad);  background: var(--bad-soft); }
+  .badge.neutral { color: var(--accent); background: var(--accent-soft); }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin: 18px 0;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .card h4 { margin: 0 0 6px; font-size: 14.5px; }
+  .card p { margin: 0; font-size: 13.5px; color: var(--ink-dim); max-width: none; }
+
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    align-items: stretch;
+    margin: 20px 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .flow-step {
+    flex: 1 1 150px;
+    padding: 14px 16px;
+    background: var(--surface);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .flow-step + .flow-step { border-left: 1px solid var(--line); }
+  .flow-step .n { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+  .flow-step .t { font-size: 13.5px; font-weight: 600; }
+  .flow-step.branch { background: var(--accent-soft); }
+
+  .fork {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin: 18px 0;
+  }
+  .fork-item {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border-top: 3px solid var(--line);
+  }
+  .fork-item.approve { border-top-color: var(--good); }
+  .fork-item.edit { border-top-color: var(--warn); }
+  .fork-item.reject { border-top-color: var(--bad); }
+  .fork-item .label { font-family: var(--mono); font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+  .fork-item.approve .label { color: var(--good); }
+  .fork-item.edit .label { color: var(--warn); }
+  .fork-item.reject .label { color: var(--bad); }
+  .fork-item p { margin: 0; font-size: 13px; color: var(--ink-dim); }
+
+  .order-diagram {
+    display: flex;
+    gap: 10px;
+    margin: 18px 0;
+    flex-wrap: wrap;
+  }
+  .order-col {
+    flex: 1 1 200px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--surface);
+  }
+  .order-col h5 { margin: 0 0 10px; font-size: 13px; font-family: var(--mono); color: var(--accent); }
+  .order-col ol { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-dim); }
+  .order-col li { margin: 4px 0; }
+
+  blockquote.note {
+    margin: 18px 0;
+    padding: 12px 16px;
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  blockquote.note p { margin: 0; max-width: none; }
+
+  .divider {
+    height: 1px;
+    background: var(--line);
+    margin: 56px 0;
+    border: none;
+  }
+
+  .qa-list { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; }
+  .qa-item {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 18px;
+    background: var(--surface);
+    font-size: 14.5px;
+  }
+  .qa-item .qn { font-family: var(--mono); color: var(--accent); font-weight: 700; margin-right: 8px; }
+
+  footer.refs {
+    margin-top: 20px;
+    font-size: 13.5px;
+    color: var(--ink-dim);
+  }
+  footer.refs a { color: var(--ink-dim); text-decoration: underline; text-decoration-color: var(--line); }
+  footer.refs ul { padding-left: 18px; }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc {
+      position: static;
+      flex-direction: row;
+      flex-wrap: wrap;
+      max-height: none;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 16px;
+      margin-bottom: 8px;
+    }
+    nav.toc .toc-label { display: none; }
+    nav.toc a.indent { display: none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="top">
+    <div class="eyebrow"><span class="dot"></span>LangGraph 스터디 · PART 04 멀티 에이전트</div>
+    <h1>멀티 에이전트: 감독자와 협업 네트워크</h1>
+    <p class="sub">《LangGraph 에이전트 비법노트》 11장 멀티 에이전트 감독자 · 12장 멀티 에이전트 협업 네트워크 정리 노트. 여러 에이전트를 조율하는 두 가지 상반된 방식 — 중앙 집중형 감독자와 수평적 협업 네트워크 — 을 같은 문제에 대한 다른 답으로 비교한다.</p>
+    <div class="meta-row">
+      <span class="meta-chip">CH.11 멀티 에이전트 감독자 · p.248–274</span>
+      <span class="meta-chip">CH.12 멀티 에이전트 협업 네트워크 · p.275–285</span>
+      <span class="meta-chip">langgraph-supervisor · create_agent</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" id="toc">
+      <div class="toc-label">Intro</div>
+      <a href="#bridge-intro" data-target="bridge-intro">두 조율 방식 비교</a>
+
+      <div class="toc-label">CH.11 감독자</div>
+      <a href="#ch11" data-target="ch11">개념과 두 가지 패턴</a>
+      <a class="indent" href="#ch11-workers" data-target="ch11-workers">전문 작업자 에이전트</a>
+      <a class="indent" href="#ch11-lib" data-target="ch11-lib">라이브러리 기반 감독자</a>
+      <a class="indent" href="#ch11-scratch" data-target="ch11-scratch">스크래치 구현과 핸드오프</a>
+      <a class="indent" href="#ch11-delegation" data-target="ch11-delegation">명시적 작업 위임</a>
+      <a class="indent" href="#ch11-hier" data-target="ch11-hier">계층적 에이전트</a>
+      <a class="indent" href="#ch11-app" data-target="ch11-app">실전 응용 — 고객 지원</a>
+
+      <div class="toc-label">CH.12 협업 네트워크</div>
+      <a href="#ch12" data-target="ch12">개념과 그래프 구조</a>
+      <a class="indent" href="#ch12-agents" data-target="ch12-agents">Research · Chart 에이전트</a>
+      <a class="indent" href="#ch12-router" data-target="ch12-router">라우터와 종료 조건</a>
+      <a class="indent" href="#ch12-graph" data-target="ch12-graph">순환 그래프 구성</a>
+
+      <div class="toc-label">스터디</div>
+      <a href="#discussion" data-target="discussion">토론 질문</a>
+      <a href="#refs" data-target="refs">참고 자료</a>
+    </nav>
+
+    <main>
+
+      <section class="part" id="bridge-intro">
+        <div class="part-tag">INTRO</div>
+        <h2>두 조율 방식 비교</h2>
+        <p class="lede">
+          단일 에이전트에 너무 많은 도구와 판단을 맡기면 컨텍스트가 비대해지고 의사결정이 흐려진다.
+          11장과 12장은 이 문제를 서로 다른 방식으로 해결한다. <strong>감독자(Supervisor)</strong> 패턴은
+          중앙의 조율자가 작업을 분해해 적절한 전문 에이전트에게 위임하고 결과를 모아 최종 응답을 만드는
+          하향식 구조다. 반면 <strong>협업 네트워크(Collaboration Network)</strong>는 상하 관계 없이
+          에이전트들이 자신의 판단에 따라 다음 에이전트에게 대화를 넘기며 작업 경로가 고정돼 있지 않은
+          수평적 구조다. 전자는 통제와 예측 가능성이 필요한 작업에, 후자는 조사·작성·검토처럼
+          단계가 유동적으로 오가는 작업에 적합하다.
+        </p>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- ================= CHAPTER 11 ================= -->
+      <section class="part" id="ch11">
+        <div class="part-tag">CHAPTER 11</div>
+        <h2>멀티 에이전트 감독자</h2>
+        <p class="lede">
+          감독자가 사용자 요청을 해석해 적절한 전문 에이전트에게 작업을 맡기고, 각 결과를 모아
+          최종 응답을 구성하는 구조. 시장 조사 후 수치 계산, 보고서 작성처럼 여러 단계의 판단이
+          필요한 작업에 특히 유용하다.
+        </p>
+
+        <h3 class="sub">멀티 에이전트의 두 가지 패턴</h3>
+        <div class="fork">
+          <div class="fork-item approve">
+            <div class="label">TOOL CALLING</div>
+            <p>감독자가 다른 에이전트를 도구처럼 호출. 전문 에이전트는 사용자와 직접 대화하지 않고 결과만 반환. 흐름을 강하게 통제해야 할 때 적합.</p>
+          </div>
+          <div class="fork-item edit">
+            <div class="label">HANDOFF</div>
+            <p>현재 에이전트가 다른 에이전트에게 대화의 제어권 자체를 넘김. 사용자가 이후 해당 전문가와 직접 상호작용. 도메인을 오가는 상담에 적합.</p>
+          </div>
+        </div>
+
+        <h3 class="sub" id="ch11-workers">전문 작업자 에이전트 생성</h3>
+        <p>
+          <code class="inline">create_agent</code>로 특정 분야에만 집중하는 작업자를 만든다.
+          이 장의 예제는 웹 검색을 담당하는 <strong>Research 에이전트</strong>와 사칙연산·거듭제곱·백분율
+          계산을 담당하는 <strong>Math 에이전트</strong> 둘을 구성한다. 각 에이전트는 시스템 프롬프트에
+          "자신의 역할만 수행하고 완료되면 감독자에게 보고하라"는 규칙을 명시해 역할 범위를 벗어나지
+          않도록 한다.
+        </p>
+        <div class="code-block">
+          <div class="code-head"><span>python</span><span>역할이 분리된 작업자 에이전트</span></div>
+          <pre><code>research_agent = create_agent(
+    model="claude-sonnet-4-5",
+    tools=[web_search],
+    system_prompt="research 전용. 계산은 하지 말고 감독자에게 결과만 보고.",
+    name="research_agent",
+)
+
+math_agent = create_agent(
+    model="claude-sonnet-4-5",
+    tools=[add, multiply, divide, power, percentage],
+    system_prompt="계산 전용. 검색은 하지 말고 감독자에게 결과만 보고.",
+    name="math_agent",
+)</code></pre>
+        </div>
+
+        <h3 class="sub" id="ch11-lib">라이브러리 기반 감독자 — langgraph-supervisor</h3>
+        <p>
+          <code class="inline">create_supervisor</code> 함수 하나로 핸드오프 로직과 그래프 구성을
+          자동 처리한다. <code class="inline">add_handoff_back_messages=True</code>로 작업자가
+          감독자에게 복귀할 때 메시지를 자동 기록하고, <code class="inline">output_mode</code>로
+          출력 형태(전체 히스토리 등)를 지정한다.
+        </p>
+        <div class="code-block">
+          <div class="code-head"><span>python</span><span>create_supervisor로 감독자 구성</span></div>
+          <pre><code>from langgraph_supervisor import create_supervisor
+
+supervisor = create_supervisor(
+    model=init_chat_model("claude-sonnet-4-5"),
+    agents=[research_agent, math_agent],
+    system_prompt="research/math 두 전문가에게 순차적으로 작업을 위임하고 결과를 종합.",
+    add_handoff_back_messages=True,
+    output_mode="full_history",
+).compile()</code></pre>
+        </div>
+        <blockquote class="note"><p>
+          "2024년 미국·뉴욕주 GDP를 찾고 비중을 계산하라"처럼 검색과 계산이 모두 필요한 복합 질문을 주면,
+          감독자가 <code class="inline">transfer_to_research_agent</code> → <code class="inline">transfer_to_math_agent</code>
+          순서로 위임하는 과정을 그대로 관찰할 수 있다.
+        </p></blockquote>
+
+        <h3 class="sub" id="ch11-scratch">스크래치 구현 — 핸드오프 메커니즘 직접 만들기</h3>
+        <p>
+          라이브러리 없이 <code class="inline">Command</code> 객체로 핸드오프를 직접 구현하면 내부 동작을
+          더 깊이 이해할 수 있다. 핸드오프 도구는 <code class="inline">InjectedState</code>,
+          <code class="inline">InjectedToolCallId</code>로 런타임 상태를 주입받아, 대상 에이전트로
+          제어권을 넘기는 <code class="inline">Command(goto=agent_name, graph=Command.PARENT)</code>를 반환한다.
+        </p>
+        <div class="code-block">
+          <div class="code-head"><span>python</span><span>핸드오프 도구 팩토리</span></div>
+          <pre><code>def create_handoff_tool(*, agent_name: str, description: str | None = None):
+    name = f"transfer_to_{agent_name}"
+
+    @tool(name, description=description)
+    def handoff_tool(
+        state: Annotated[MessagesState, InjectedState],
+        tool_call_id: Annotated[str, InjectedToolCallId],
+    ) -> Command:
+        tool_message = {
+            "role": "tool", "name": name, "tool_call_id": tool_call_id,
+            "content": f"Successfully transferred to {agent_name}",
+        }
+        return Command(
+            goto=agent_name,
+            update={"messages": state["messages"] + [tool_message]},
+            graph=Command.PARENT,   # 서브그래프가 아닌 부모 그래프 레벨에서 라우팅
+        )
+    return handoff_tool</code></pre>
+        </div>
+        <p>
+          이렇게 만든 핸드오프 도구를 감독자 에이전트의 <code class="inline">tools</code>로 전달하고,
+          <code class="inline">StateGraph</code>에 작업자 노드를 추가한 뒤 각 작업자에서 다시
+          <code class="inline">supervisor</code>로 돌아오는 엣지를 연결하면 라이브러리와 동일한 구조가 완성된다.
+        </p>
+
+        <h3 class="sub" id="ch11-delegation">고급 작업 위임 — 명시적 작업 설명</h3>
+        <p>
+          기본 구조는 전체 대화 히스토리를 그대로 전달하지만, 대화가 길어질수록 작업 의도가 흐려질 수 있다.
+          <code class="inline">Send</code> 패턴을 사용하면 감독자가 구체적인 작업 지시문(<code class="inline">task_description</code>)을
+          직접 작성해 에이전트에게 전달할 수 있어, 정확성과 일관성이 높아진다.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th></th><th>전체 히스토리 전달</th><th>명시적 작업 설명(Send)</th></tr></thead>
+            <tbody>
+              <tr><td>입력</td><td>대화 전체 메시지</td><td>감독자가 작성한 구체적 지시문</td></tr>
+              <tr><td>장점</td><td>구현이 단순</td><td>정확성 ↑, 컨텍스트 해석 부담 ↓, 결과 일관성 ↑</td></tr>
+              <tr><td>단점</td><td>대화가 길어지면 의도 희석</td><td>감독자가 매번 지시문을 잘 작성해야 함</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="sub" id="ch11-hier">고급 패턴 — 계층적 에이전트</h3>
+        <p>
+          최상위 에이전트가 중간 레벨 에이전트를 도구로 호출하고, 중간 레벨이 다시 하위 에이전트를
+          호출하는 다단계 구조. 이 장의 예제는 3단계 수학 에이전트로 구성한다 — 계층3(기본 산술) →
+          계층2(중간 수준 조합) → 계층1(복잡한 문제 분해). 감독자 패턴과 달리 도구 호출(tool-calling)
+          방식만으로 계층을 표현하며, 각 레벨은 <code class="inline">@tool</code>로 래핑되어 상위
+          에이전트에서 함수처럼 호출된다.
+        </p>
+
+        <h3 class="sub" id="ch11-app">실전 응용 — 고객 지원 시스템</h3>
+        <p>
+          기술 지원 · 청구 지원 · 일반 지원 세 전문 에이전트를 감독자가 문의 내용에 따라 라우팅하는
+          실무형 예제. 콜센터에서 상담원이 문의 유형을 파악해 적절한 부서로 연결하는 구조와 동일하다.
+        </p>
+        <div class="card-grid">
+          <div class="card"><h4>기술 지원</h4><p>시스템 상태 확인, 서비스 재시작 등 오류·기술 질문 처리</p></div>
+          <div class="card"><h4>청구 지원</h4><p>인보이스 조회, 환불 처리 등 결제 관련 문의 처리</p></div>
+          <div class="card"><h4>일반 지원</h4><p>영업시간, 제품 정보 등 도구 없이 일반 문의 응대</p></div>
+        </div>
+        <p>
+          감독자는 <code class="inline">call_tech_support</code>, <code class="inline">call_billing_support</code>,
+          <code class="inline">call_general_support</code> 세 도구 중 문의 내용에 맞는 것을 선택해 호출하며,
+          환불 처리 전 인보이스를 먼저 확인하도록 지시하는 등 업무 순서 규칙도 시스템 프롬프트에 포함된다.
+        </p>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- ================= CHAPTER 12 ================= -->
+      <section class="part" id="ch12">
+        <div class="part-tag">CHAPTER 12</div>
+        <h2>멀티 에이전트 협업 네트워크</h2>
+        <p class="lede">
+          여러 에이전트가 고정된 상하 관계 없이 서로 작업을 넘기며 문제를 해결하는 구조. 감독자가
+          중앙에서 조율하는 대신, 각 에이전트가 자신의 판단에 따라 다음 에이전트나 도구로 흐름을
+          이어간다. 조사 → 작성 → 검토처럼 경로가 하나로 고정돼 있지 않은 문제에 적합하다.
+        </p>
+
+        <h3 class="sub" id="ch12-agents">Research · Chart Generator 에이전트</h3>
+        <p>
+          이 장의 예제는 웹 검색 도구(TavilySearch)를 쓰는 <strong>Research 에이전트</strong>와,
+          파이썬 코드를 실행해 matplotlib 차트를 그리는 <strong>Chart Generator 에이전트</strong>
+          두 협업자로 구성된다. 두 에이전트 모두 공통 시스템 프롬프트 생성 함수를 공유해
+          "협업 중임을 인지하고, 완료 시 응답 앞에 <code class="inline">FINAL ANSWER</code>를 붙인다"는
+          규칙을 갖는다.
+        </p>
+        <div class="code-block">
+          <div class="code-head"><span>python</span><span>공용 시스템 프롬프트 · 노드 함수</span></div>
+          <pre><code>def make_system_prompt(suffix: str) -> str:
+    return (
+        "You are collaborating with other assistants. "
+        "If you have the final answer, prefix your response with FINAL ANSWER."
+        f"\n{suffix}"
+    )
+
+def research_node(state: MessagesState) -> MessagesState:
+    result = research_agent.invoke(state)
+    last_message = HumanMessage(content=result["messages"][-1].content, name="researcher")
+    return {"messages": [last_message]}</code></pre>
+        </div>
+        <blockquote class="note"><p>
+          노드 함수가 에이전트 출력을 <code class="inline">name</code> 필드가 있는
+          <code class="inline">HumanMessage</code>로 감싸는 이유는, 다른 에이전트가 "이 메시지를
+          누가 보냈는지" 구분할 수 있게 하기 위함이다.
+        </p></blockquote>
+        <p>
+          Chart Generator의 시스템 프롬프트에는 운영체제별 한글 폰트 설정(맥 <code class="inline">AppleGothic</code>,
+          윈도우 <code class="inline">맑은 고딕</code>, 리눅스 <code class="inline">NanumGothic</code>)
+          코드가 포함돼 있어, 생성되는 차트에서 한글이 깨지지 않도록 한다.
+        </p>
+
+        <h3 class="sub" id="ch12-router">라우터와 종료 조건</h3>
+        <p>
+          라우터 함수는 마지막 메시지에 <code class="inline">FINAL ANSWER</code>가 포함됐는지 확인해
+          그래프를 종료할지, 상대 에이전트로 넘길지 결정한다. Claude처럼 응답을 콘텐츠 블록 리스트로
+          반환하는 모델을 고려해, 리스트인 경우 각 블록의 텍스트를 합쳐서 검사한다.
+        </p>
+        <div class="code-block">
+          <div class="code-head"><span>python</span><span>종료 판단 라우터</span></div>
+          <pre><code>def router(state: MessagesState):
+    content = state["messages"][-1].content
+    if isinstance(content, list):
+        content = " ".join(b.get("text", "") for b in content if isinstance(b, dict))
+    return END if "FINAL ANSWER" in content else "continue"</code></pre>
+        </div>
+
+        <h3 class="sub" id="ch12-graph">순환 그래프 구성</h3>
+        <p>
+          <code class="inline">researcher</code>와 <code class="inline">chart_generator</code>
+          두 노드 사이에 양방향 조건부 엣지를 연결해 순환 구조를 만든다. 한쪽이 작업을 끝내지 못하면
+          상대에게 넘어가고, <code class="inline">FINAL ANSWER</code>가 나오면 종료한다. 무한 루프를
+          막기 위해 실행 시 <code class="inline">recursion_limit</code>으로 최대 반복 횟수를 제한한다.
+        </p>
+        <div class="flow">
+          <div class="flow-step"><span class="n">01</span><span class="t">researcher가 데이터 수집</span></div>
+          <div class="flow-step branch"><span class="n">02</span><span class="t">FINAL ANSWER 미포함 → chart_generator로 이동</span></div>
+          <div class="flow-step"><span class="n">03</span><span class="t">chart_generator가 시각화 코드 실행</span></div>
+          <div class="flow-step branch"><span class="n">04</span><span class="t">FINAL ANSWER 포함 → 종료</span></div>
+        </div>
+        <div class="code-block">
+          <div class="code-head"><span>python</span><span>양방향 순환 그래프</span></div>
+          <pre><code>workflow = StateGraph(MessagesState)
+workflow.add_node("researcher", research_node)
+workflow.add_node("chart_generator", chart_node)
+
+workflow.add_conditional_edges("researcher", router,
+    {"continue": "chart_generator", END: END})
+workflow.add_conditional_edges("chart_generator", router,
+    {"continue": "researcher", END: END})
+
+workflow.add_edge(START, "researcher")
+app = workflow.compile(checkpointer=MemorySaver())</code></pre>
+        </div>
+        <p>
+          실행 예제로 "2010~2025년 대한민국 1인당 GDP 추이를 시각화"를 요청하면, researcher가
+          연도별 GDP 수치를 표로 정리해 chart_generator에게 넘기고, chart_generator가 matplotlib
+          코드를 실행해 그래프를 그린 뒤 <code class="inline">FINAL ANSWER</code>로 마무리한다.
+        </p>
+      </section>
+
+      <hr class="divider" />
+
+      <section class="part" id="discussion">
+        <div class="part-tag">스터디</div>
+        <h2>토론 질문</h2>
+        <p class="lede">감독자와 협업 네트워크, 두 구조를 비교하며 던져 볼 질문들.</p>
+        <div class="qa-list">
+          <div class="qa-item"><span class="qn">Q1</span>같은 "GDP 검색 + 비율 계산" 작업을 감독자 패턴과 협업 네트워크로 각각 구현한다면, 그래프 구조와 종료 조건은 어떻게 달라지는가?</div>
+          <div class="qa-item"><span class="qn">Q2</span>도구 호출(tool-calling) 방식과 핸드오프(handoff) 방식 중, 사용자가 특정 전문 에이전트와 계속 대화를 이어가야 하는 상담 시나리오에는 어느 쪽이 맞는가?</div>
+          <div class="qa-item"><span class="qn">Q3</span>협업 네트워크의 라우터가 <code class="inline">FINAL ANSWER</code> 문자열 검사에 의존하는데, 모델이 이 문구를 빼먹거나 다른 언어로 답하면 어떤 문제가 생기는가? 더 견고한 종료 판단 방법은?</div>
+          <div class="qa-item"><span class="qn">Q4</span>명시적 작업 설명(Send) 방식은 정확성을 높이지만 감독자가 지시문을 매번 잘 작성해야 한다는 부담이 있다. 이 트레이드오프가 실무에서 문제가 되는 경우는?</div>
+          <div class="qa-item"><span class="qn">Q5</span>계층적 에이전트(3단계)와 감독자-작업자(2단계) 구조 중, 어떤 상황에서 계층을 한 단계 더 추가하는 것이 정당화되는가?</div>
+        </div>
+      </section>
+
+      <section class="part" id="refs">
+        <div class="part-tag">참고</div>
+        <h2>참고 자료</h2>
+        <footer class="refs">
+          <ul>
+            <li>도서 · 《LangGraph 에이전트 비법노트》 — CHAPTER 11 p.248–274, CHAPTER 12 p.275–285</li>
+            <li>예제 노트북 · Ch11-멀티에이전트-Supervisor/01-LangGraph-Supervisor.ipynb</li>
+            <li>예제 노트북 · Ch12-멀티-에이전트-협업-네트워크/02-LangGraph-Multi-Agent-Collaboration.ipynb</li>
+          </ul>
+        </footer>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+    var targets = links.map(function (a) {
+      return document.getElementById(a.getAttribute('data-target'));
+    }).filter(Boolean);
+
+    if (!('IntersectionObserver' in window) || targets.length === 0) return;
+
+    var current = null;
+    function setActive(id) {
+      if (id === current) return;
+      current = id;
+      links.forEach(function (a) {
+        a.classList.toggle('active', a.getAttribute('data-target') === id);
+      });
+    }
+
+    var observer = new IntersectionObserver(function (entries) {
+      var visible = entries.filter(function (e) { return e.isIntersecting; });
+      if (visible.length > 0) {
+        visible.sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top; });
+        setActive(visible[0].target.id);
+      }
+    }, { rootMargin: '-10% 0px -70% 0px', threshold: [0, 1] });
+
+    targets.forEach(function (t) { observer.observe(t); });
+  })();
+</script>
