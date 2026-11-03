@@ -927,7 +927,7 @@ for msg in graph.get_state(config).values["messages"]:   <span class="c"># 최�
           <ol>
             <li>LLM이 <code class="inline">HumanRequest</code> 도구를 호출하면 chatbot이 상태의 <code class="inline">ask_human</code>을 <code class="inline">True</code>로 바꾼다.</li>
             <li>라우터가 <code class="inline">ask_human</code>을 보고 <code class="inline">human</code> 노드로 보낸다. <code class="inline">interrupt_before=["human"]</code>이라 그 직전에 멈춘다.</li>
-            <li>사람(전문가)이 <code class="inline">update_state</code>로 답변 <code class="inline">ToolMessage</code>를 넣는다.</li>
+            <li>전문가 역할을 맡은 사람이 답변을 작성하면, 이를 <code class="inline">create_response</code>로 <code class="inline">ToolMessage</code>로 만들어 <code class="inline">update_state</code>로 상태에 추가한다.</li>
             <li><code class="inline">stream(None, config)</code>로 재개 → human 노드는 플래그만 끄고 → chatbot이 전문가 답을 바탕으로 최종 답을 만든다.</li>
           </ol>
         </div>
@@ -1086,6 +1086,32 @@ graph = graph_builder.compile(checkpointer=MemorySaver())   <span class="c"># in
 
 graph.invoke({"messages": [("user", user_input)]}, config)  <span class="c"># → __interrupt__ 반환</span>
 graph.invoke(Command(resume="전문가 답변 ..."), config)      <span class="c"># 답변을 넣고 재개</span></code></pre>
+          </div>
+          <p>
+            <strong>human 노드로 가는 경로는 책 코드 그대로다.</strong> <code class="inline">chatbot</code>(HumanRequest 호출 시 <code class="inline">ask_human=True</code>),
+            <code class="inline">select_next_node</code>(플래그가 켜져 있으면 <code class="inline">"human"</code>), <code class="inline">human → chatbot</code> 에지는 바꾸지 않고,
+            위 코드처럼 <code class="inline">human_node</code>와 <code class="inline">compile</code> 두 곳만 교체한다.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>호출</th><th>실행 흐름</th></tr></thead>
+              <tbody>
+                <tr><td>1번째 <code class="inline">invoke</code><br>(사용자 질문)</td><td>chatbot이 HumanRequest 호출 → <code class="inline">ask_human=True</code> → select_next_node가 <code class="inline">"human"</code> 반환 → human_node 실행 중 <code class="inline">interrupt()</code>에서 멈춤 → <code class="inline">__interrupt__</code>와 함께 반환 (앱은 여기 담긴 request를 전문가에게 보여 주고 답을 받는다)</td></tr>
+                <tr><td>2번째 <code class="inline">invoke</code><br>(<code class="inline">Command(resume=...)</code>)</td><td>human_node가 <strong>처음부터 다시</strong> 실행 → 이번엔 <code class="inline">interrupt()</code>가 전문가 답변을 반환 → ToolMessage 생성, <code class="inline">ask_human=False</code> → chatbot이 최종 답 생성 → END</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th></th><th>책 (정적 인터럽트)</th><th><code class="inline">interrupt()</code> 방식</th></tr></thead>
+              <tbody>
+                <tr><td>human으로 가는 라우팅</td><td colspan="2">같음 — chatbot이 플래그를 켜고 select_next_node가 human으로 보냄</td></tr>
+                <tr><td>멈추는 곳</td><td>human 노드 <strong>들어가기 전</strong> (<code class="inline">interrupt_before</code>)</td><td>human 노드 <strong>안</strong> <code class="inline">interrupt()</code> 줄</td></tr>
+                <tr><td>답변 전달</td><td>바깥에서 ToolMessage를 만들어 <code class="inline">update_state</code></td><td>답변 텍스트만 <code class="inline">Command(resume=...)</code>로 넘김</td></tr>
+                <tr><td>"No response" 방어 로직</td><td>마지막 메시지가 ToolMessage인지 검사</td><td>불필요 (<code class="inline">answer or ...</code>)</td></tr>
+                <tr><td>재개</td><td><code class="inline">stream(None, config)</code></td><td><code class="inline">invoke(Command(resume=...), config)</code></td></tr>
+              </tbody>
+            </table>
           </div>
           <p>주의: 재개되면 노드가 <strong>처음부터 다시 실행</strong>되므로, <code class="inline">interrupt()</code> 앞에 부작용(외부 API 호출 등)을 두지 않는다.</p>
 
